@@ -55,6 +55,13 @@ while(True):
     # Send current server time to the client
     serverTimeNow = "%s"%datetime.datetime.now()
     secureClientSocket.send(serverTimeNow.encode())
+
+    while True:
+        data = secureClientSocket.recv(1024)
+        if not data:
+            break
+        print(f"Received: {data.decode('utf-8')}")
+
     print("Securely sent %s to %s"%(serverTimeNow, clientAddress))
 
     # Close the connection to the client

@@ -47,8 +47,9 @@ if currentTimeStamp < notBeforeTimestamp:
     raise Exception("Server certificate not yet active")
 
 # Safe to proceed with the communication
+secureClientSocket.send("Hello World!".encode("utf-8"))
 msgReceived = secureClientSocket.recv(1024)
-print("Secure communication received from server:%s"%msgReceived.decode())
+print(f"Secure communication received from server: {msgReceived.decode()}")
 
 # Close the sockets
 secureClientSocket.close()
