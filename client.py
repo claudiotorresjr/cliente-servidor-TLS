@@ -3,6 +3,8 @@ import ssl
 import sys
 import time
 
+import rsa_utils
+
 # IP address and the port number of the server
 sslServerIP    = "127.0.0.1"
 
@@ -46,8 +48,16 @@ if currentTimeStamp > notAfterTimestamp:
 if currentTimeStamp < notBeforeTimestamp:
     raise Exception("Server certificate not yet active")
 
+#encrypt message with server public key
+pubkey_path = "rsakeys/serverrsa.public"
+cipher_text = rsa_utils.encrypt(pubkey_path, sys.argv[2])
+
+print("Real text sent to server ->", sys.argv[2])
+print("Cipher text sent to server ->", cipher_text)
+
 # Safe to proceed with the communication
-secureClientSocket.send("Hello World!".encode("utf-8"))
+secureClientSocket.send(cipher_text)
+
 msgReceived = secureClientSocket.recv(1024)
 print(f"Secure communication received from server: {msgReceived.decode()}")
 
