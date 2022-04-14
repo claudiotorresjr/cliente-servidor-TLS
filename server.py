@@ -5,6 +5,9 @@ import socket
 import datetime
 import time
 
+import rsa_utils
+
+
 ip_address = "127.0.0.1"
 
 # Create a server socket 
@@ -56,11 +59,15 @@ while(True):
     serverTimeNow = "%s"%datetime.datetime.now()
     secureClientSocket.send(serverTimeNow.encode())
 
+    #encrypt message with server public key
+    privkey_path = "rsakeys/serverrsa.private"
+
     while True:
         data = secureClientSocket.recv(1024)
         if not data:
             break
-        print(f"Received: {data.decode('utf-8')}")
+        decript= rsa_utils.decrypt(privkey_path, data)
+        print(f"Received:{decript}")
 
     print("Securely sent %s to %s"%(serverTimeNow, clientAddress))
 
