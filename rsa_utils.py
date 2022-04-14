@@ -20,5 +20,6 @@ def decrypt(privkey_path, cipher_text):
 
     keyPriv = RSA.importKey(privkey) # import the private key
     cipher = Cipher_PKCS1_v1_5.new(keyPriv)
-    plaintext = cipher.decrypt(cipher_text, "")
+    plaintext = cipher.decrypt(cipher_text, "ERROR")
+
     return plaintext

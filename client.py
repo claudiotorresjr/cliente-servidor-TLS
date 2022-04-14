@@ -6,7 +6,7 @@ import time
 import rsa_utils
 
 # IP address and the port number of the server
-sslServerIP    = "127.0.0.1"
+sslServerIP = "127.0.0.1"
 
 # Create an SSL context
 context = ssl.SSLContext()
@@ -52,14 +52,20 @@ if currentTimeStamp < notBeforeTimestamp:
 pubkey_path = "rsakeys/serverrsa.public"
 cipher_text = rsa_utils.encrypt(pubkey_path, sys.argv[2])
 
-print("Real text sent to server ->", sys.argv[2])
-print("Cipher text sent to server ->", cipher_text)
+print(f"Securely sent '{sys.argv[2]}' to SERVER")
+print(f" -> Ciphered msg is: {cipher_text}")
 
+cipher_text = b'\xa2\xeb\xbbs\x82\xdet\xd6\xfb\x16*\x8a~\xc4U\xda\xea\xcf\x0c\n\x86\x0f0\xc1\xd5\x1b\xc3\x16P\xcdi\xb7H\xe1c\t<\xae\xb3R\x8cPV0\x8f\xf0S\xe9d\xab\x96F\x95\xf8\x18\x07m\x0fv$\x16\xc9\xd7\x82\x84\xfd\xc1\xffT\x1d\x1d\xd90\xd7\xf2lb\x05J\x99\xc7\xed\xa7A\xbcv\x0c\x84\xed%\x82\xec\x0fx\xb0\x02\xe9\\\xd8\xfa@\xbe\x945Z\x1e\x0c\x9a$^\x81\xb5z\xeb\x18\xce\x9d\x9by\xcb\x1c4\xb2\x92\xcf\x88\x9c\xde'
 # Safe to proceed with the communication
 secureClientSocket.send(cipher_text)
 
-msgReceived = secureClientSocket.recv(1024)
-print(f"Secure communication received from server: {msgReceived.decode()}")
+#decrypt message with server private key
+privkey_path = "rsakeys/clientrsa.private"
+
+data = secureClientSocket.recv(1024)
+decripted_msg = rsa_utils.decrypt(privkey_path, data)
+    
+print(f"Secure communication received from server: {decripted_msg}")
 
 # Close the sockets
 secureClientSocket.close()

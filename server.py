@@ -15,8 +15,8 @@ serverSocket = socket.socket()
 serverSocket.bind((ip_address, int(sys.argv[1])))
 
 # Listen for incoming connections
-serverSocket.listen();
-print("Server listening:");
+serverSocket.listen()
+print("Server listening:")
 
 while(True):
     # Keep accepting connections from clients
@@ -55,21 +55,25 @@ while(True):
     if ts > t2:
         raise Exception("Expired client certificate")
 
-    # Send current server time to the client
-    serverTimeNow = "%s"%datetime.datetime.now()
-    secureClientSocket.send(serverTimeNow.encode())
-
-    #encrypt message with server public key
+    #decrypt message with server private key
     privkey_path = "rsakeys/serverrsa.private"
+    data = secureClientSocket.recv(1024)
+    decripted_msg = rsa_utils.decrypt(privkey_path, data)
 
-    while True:
-        data = secureClientSocket.recv(1024)
-        if not data:
-            break
-        decript= rsa_utils.decrypt(privkey_path, data)
-        print(f"Received:{decript}")
+    print(f"Secure communication received from client: {decripted_msg}")
 
-    print("Securely sent %s to %s"%(serverTimeNow, clientAddress))
+    # Send current server time to the client
+    # serverTimeNow = "%s"%datetime.datetime.now()
+    # secureClientSocket.send(serverTimeNow.encode())
+
+    #encrypt message with client public key
+    pubkey_path = "rsakeys/clientrsa.public"
+    msg = "bem vindo ao servidor :D"
+    cipher_text = rsa_utils.encrypt(pubkey_path, msg)
+    secureClientSocket.send(cipher_text)
+
+    print(f"Securely sent {msg} to CLIENT")
+    print(f" -> Ciphered msg is: {cipher_text}")
 
     # Close the connection to the client
     secureClientSocket.close()
