@@ -1,72 +1,95 @@
 import socket
 import ssl
 import sys
-import time
+import M2Crypto
 
-import rsa_utils
-
-# IP address and the port number of the server
 sslServerIP = "127.0.0.1"
 
-# Create an SSL context
+#cria um contexto SSL
 context = ssl.SSLContext()
 context.verify_mode = ssl.CERT_REQUIRED
 
 # Load CA certificate with which the client will validate the server certificate
+#carrega o certificado do CA que o cliente ira validar o certificado do servidor
 context.load_verify_locations("certificates/ca-cert.pem")
 
-# Load client certificate
+#carrega o certificado e a chave privada do cliente
 context.load_cert_chain(certfile="certificates/client-cert.pem", keyfile="certificates/client-key.pem")
 
-# Create a client socket
+#cria o socket do cliente
 clientSocket = socket.socket()
 
-# Make the client socket suitable for secure communication
+#faz o socket do cliente adequado para comunicação segura
 secureClientSocket = context.wrap_socket(clientSocket)
 secureClientSocket.connect((sslServerIP, int(sys.argv[1])))
 
-# Obtain the certificate from the server
-server_cert = secureClientSocket.getpeercert()
+#pega o certificado do servidor
+server_cert = secureClientSocket.getpeercert(1)
 
-# Validate whether the Certificate is indeed issued to the server
-subject = dict(item[0] for item in server_cert['subject'])
-commonName = subject['commonName']
+#carrea o certiicado com o M2Crypto para manipulacao
+cert = M2Crypto.X509.load_cert_string(server_cert, M2Crypto.X509.FORMAT_DER)
+#extrai a chave publica relacionada a esse certificado (chave publica do servidor)
+server_rsa_public = cert.get_pubkey().get_rsa()
 
-if not server_cert:
-    raise Exception("Unable to retrieve server certificate")
-    
-if commonName != '127.0.0.1':
-    raise Exception("Incorrect common name in server certificate")
+    #prepara a mensagem que sera enviada ao servidor (mensagem criptografada)
+cipher_text = server_rsa_public.public_encrypt(sys.argv[2].encode(),
+    M2Crypto.RSA.pkcs1_oaep_padding)
 
-notAfterTimestamp = ssl.cert_time_to_seconds(server_cert['notAfter'])
-notBeforeTimestamp = ssl.cert_time_to_seconds(server_cert['notBefore'])
-currentTimeStamp = time.time()
+print(f"Preparando resposta para o servidor:")
+print(f" -> Enviando para o servidor: '{sys.argv[2]}'")
+print(f" -> Mensaem cifrada: {cipher_text}\n")
 
-if currentTimeStamp > notAfterTimestamp:
-    raise Exception("Expired server certificate")
-    
-if currentTimeStamp < notBeforeTimestamp:
-    raise Exception("Server certificate not yet active")
+#assina a mensagem para que o servidor saiba que foi mandada realmente por esse cliente
+MsgDigest = M2Crypto.EVP.MessageDigest('sha1')
+MsgDigest.update(cipher_text)
 
-#encrypt message with server public key
-pubkey_path = "rsakeys/serverrsa.public"
-cipher_text = rsa_utils.encrypt(pubkey_path, sys.argv[2])
+print(cipher_text[2])
+#assina a mensagem criptografada com a chave privada desse cliente
+WriteRSA = M2Crypto.RSA.load_key("certificates/client-key.pem")
+signature = WriteRSA.sign_rsassa_pss(MsgDigest.digest())
+print("Assinatura gerada:")
+print(f" -> {signature}")
 
-print(f"Securely sent '{sys.argv[2]}' to SERVER")
-print(f" -> Ciphered msg is: {cipher_text}")
-
-cipher_text = b'\xa2\xeb\xbbs\x82\xdet\xd6\xfb\x16*\x8a~\xc4U\xda\xea\xcf\x0c\n\x86\x0f0\xc1\xd5\x1b\xc3\x16P\xcdi\xb7H\xe1c\t<\xae\xb3R\x8cPV0\x8f\xf0S\xe9d\xab\x96F\x95\xf8\x18\x07m\x0fv$\x16\xc9\xd7\x82\x84\xfd\xc1\xffT\x1d\x1d\xd90\xd7\xf2lb\x05J\x99\xc7\xed\xa7A\xbcv\x0c\x84\xed%\x82\xec\x0fx\xb0\x02\xe9\\\xd8\xfa@\xbe\x945Z\x1e\x0c\x9a$^\x81\xb5z\xeb\x18\xce\x9d\x9by\xcb\x1c4\xb2\x92\xcf\x88\x9c\xde'
-# Safe to proceed with the communication
+#apos criptografar a mensagem, estamos prontos para enviar para o servidor
+#envia a mensagem cifrada
 secureClientSocket.send(cipher_text)
+#envia a assinatura
+secureClientSocket.send(signature)
 
-#decrypt message with server private key
-privkey_path = "rsakeys/clientrsa.private"
-
+#recebe o retorno do servidor, que foi uma mensagem assinada com a chave publica do cliente
 data = secureClientSocket.recv(1024)
-decripted_msg = rsa_utils.decrypt(privkey_path, data)
-    
-print(f"Secure communication received from server: {decripted_msg}")
+#recebe a assinatura utilizada para assinar a mensagem recebida anteriormente
+#autenticando quem realmente a enviou
+signature = secureClientSocket.recv(1024)
 
-# Close the sockets
+#verifica a assinatura da mensagem criptografada
+MsgDigest = M2Crypto.EVP.MessageDigest('sha1')
+MsgDigest.update(data)
+if server_rsa_public.verify_rsassa_pss(MsgDigest.digest(), signature):
+    print("Assinatura correta")
+else:
+    print("Assinatura incorreta!")
+    exit()
+
+#carrega a chave privada do cliente
+ReadRSA = M2Crypto.RSA.load_key("certificates/client-key.pem")
+
+#tenta descriptografar a mensagem utilizando a chave privada do cliente
+#se a chave for a errada, ocorrera um erro
+plain_text = ""
+try:
+    plain_text = ReadRSA.private_decrypt(
+        data, M2Crypto.RSA.pkcs1_oaep_padding)
+except:
+    print("Error: Possivelmente a chave utilizada na descriptografia esta incorreta")
+    exit()
+    
+print(f"Comunicacao segura recebida do servidor:")
+print(f" -> Mensagem criptografada: '{data}'")
+print(f" -> Mensagem descriptografada: '{plain_text}'\n")
+
+#fecha a conexao com o servidor
 secureClientSocket.close()
 clientSocket.close()
+
+#python client.py 15001 "testando mensagem"
