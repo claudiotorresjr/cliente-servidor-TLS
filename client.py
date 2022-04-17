@@ -43,7 +43,6 @@ print(f" -> Mensaem cifrada: {cipher_text}\n")
 MsgDigest = M2Crypto.EVP.MessageDigest('sha1')
 MsgDigest.update(cipher_text)
 
-print(cipher_text[2])
 #assina a mensagem criptografada com a chave privada desse cliente
 WriteRSA = M2Crypto.RSA.load_key("certificates/client-key.pem")
 signature = WriteRSA.sign_rsassa_pss(MsgDigest.digest())
