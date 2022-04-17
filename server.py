@@ -46,7 +46,7 @@ while(True):
     signature = secureClientSocket.recv(1024)
 
     #verifica a assinatura da mensagem criptografada
-    MsgDigest = M2Crypto.EVP.MessageDigest('sha256')
+    MsgDigest = M2Crypto.EVP.MessageDigest('sha1')
     MsgDigest.update(data)
     if client_rsa_public.verify_rsassa_pss(MsgDigest.digest(), signature):
         print("Assinatura correta")
